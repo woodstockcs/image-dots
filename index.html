@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <script type="text/javascript" src="svg.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-2.4.1.css">
+  </head>
+
+  <body>
+    <canvas id="original" style="float: left;"></canvas>
+    <div id="sketch" style="float: right;"></div>
+    <script>
+      // to workaround CORS:
+      // run a local server python 2: python -m SimpleHTTPServer  python 3: python -m http.server
+      // (to install python on windows see here https://docs.python.org/3/using/windows.html)
+      // or open chrome with flags https://stackoverflow.com/questions/3102819/disable-same-origin-policy-in-chrome?rq=1
+      var IMG_FILENAME = "einstein.jpg";
+      var CELL_SIZE = 9;
+      var MAX_DRAW_SIZE = 7;
+      var MIN_DRAW_SIZE = 0;
+      var MIN_CUTOFF = 1;
+      var SCALE = 3;
+      var UNIVERSAL_DIMMER = 1;
+      var TEXT_SPACE = 100;
+      var img = new Image();
+      img.src = IMG_FILENAME;
+      img.onload = function(e) {
+        var theCanvas = document.getElementById("original");
+        theCanvas.width = img.width;
+        theCanvas.height = img.height + TEXT_SPACE;
+        var context = document.getElementById('original').getContext('2d');
+        context.drawImage(img, 0, TEXT_SPACE);
+        var imgData = context.getImageData(0, TEXT_SPACE, img.width, img.height).data;
+        var s = SVG("sketch");
+        s.size(img.width * SCALE + CELL_SIZE, img.height * SCALE + CELL_SIZE + TEXT_SPACE);
+        var outputImageData = makeArrayTwoDimensional(collapseImageDataToBrightness(imgData), img.width);
+        for (var y = 0; y < img.height; y = y + CELL_SIZE / SCALE) {
+          for (var x = 0; x < img.width; x = x + CELL_SIZE / SCALE) {
+            var drawSize = convertBrightnessToSize(outputImageData[y][x], MAX_DRAW_SIZE);
+            var drawX = x * SCALE + getCenteringAdjustment(drawSize, CELL_SIZE);
+            var drawY = y * SCALE + getCenteringAdjustment(drawSize, CELL_SIZE);;
+            s.circle(drawSize).stroke('#ff000000').fill('#000000').move(drawX, drawY);
+          }
+        }
+        s.text('This is a really inspiring').move(20, 760).font({
+          fill: '#000000',
+          size: '25',
+          family: 'cursive'
+        })
+        s.text('sentence.').move(20, 790).font({
+          fill: '#000000',
+          size: '25',
+          family: 'cursive'
+        })
+      }();
+
+      function getCenteringAdjustment(givenSize, cellSize) {
+        return cellSize - (givenSize / 2);
+      }
+
+      function convertBrightnessToSize(b, maxSize) {
+        var output = Math.max(MIN_DRAW_SIZE, maxSize - (maxSize * b / 255));
+        if (output < MIN_CUTOFF) {
+          output = MIN_DRAW_SIZE;
+        }
+        return output * UNIVERSAL_DIMMER;
+      }
+
+      function makeArrayTwoDimensional(data, rowLength) {
+        var output = [];
+        var currentRowValues = [];
+        for (i = 0; i < data.length; i++) {
+          currentRowValues[getCurrentColumnIndex(i, rowLength)] = data[i];
+          if (getCurrentColumnIndex(i, rowLength) == rowLength - 1) {
+            output[getCurrentRowIndex(i, rowLength)] = currentRowValues;
+            currentRowValues = [];
+          }
+        }
+        return output;
+      }
+
+      function getCurrentRowIndex(i, rowLength) {
+        return Math.floor(i / rowLength);
+      }
+
+      function getCurrentColumnIndex(i, rowLength) {
+        return i % rowLength;
+      }
+
+      function collapseImageDataToBrightness(data) {
+        var newData = [];
+        var newDataCounter = 0;
+        for (i = 0; i < data.length; i += 4) {
+          var rgba = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+          newData[newDataCounter] = getBrightness(rgba);
+          newDataCounter++;
+        }
+        return newData;
+      }
+
+      function getBrightness(rgba) {
+        return Math.floor((rgba[0] + rgba[1] + rgba[2]) / 3);
+      }
+    </script>
+  </body>
+
+</html>
